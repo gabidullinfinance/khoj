@@ -12,6 +12,8 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+    networks:
+      - proxy
   sandbox:
     image: ghcr.io/khoj-ai/terrarium:latest
     healthcheck:
@@ -19,14 +21,30 @@ services:
       interval: 30s
       timeout: 10s
       retries: 2
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.sandbox.entrypoints=websecure"
+      - "traefik.http.routers.sandbox.rule=Host(`sandbox.aproject.com`)"
+      - "traefik.http.routers.sandbox.tls.certresolver=letsencrypt"
+      - "traefik.http.services.sandbox.loadbalancer.server.port=8080"
+    networks:
+      - proxy
   search:
     image: docker.io/searxng/searxng:latest
     volumes:
       - khoj_search:/etc/searxng
     environment:
-      - SEARXNG_BASE_URL=http://localhost:8080/
+      - SEARXNG_BASE_URL=http://localhost:8090/
   # Creates Computer for Khoj to use.
   # Set KHOJ_OPERATOR_ENABLED=True in the server service environment variable to enable.
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.search.entrypoints=websecure"
+      - "traefik.http.routers.search.rule=Host(`search.aproject.com`)"
+      - "traefik.http.routers.search.tls.certresolver=letsencrypt"
+      - "traefik.http.services.search.loadbalancer.server.port=8090"
+    networks:
+      - proxy
   computer:
     container_name: khoj-computer
     image: ghcr.io/khoj-ai/khoj-computer:latest
@@ -37,6 +55,8 @@ services:
       - "5900:5900"
     volumes:
       - khoj_computer:/home/operator
+    networks:
+      - proxy
   server:
     depends_on:
       database:
@@ -68,30 +88,30 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_HOST=database
       - POSTGRES_PORT=5432
-      - KHOJ_DJANGO_SECRET_KEY=secret
-      - KHOJ_DEBUG=False
-      - KHOJ_ADMIN_EMAIL=username@example.com
-      - KHOJ_ADMIN_PASSWORD=password
+      - KHOJ_DJANGO_SECRET_KEY=fs(%7=ows@rj3ezf+%30)bsq+c&_@4b1+yq*3^a4t)j0$#%s%
+      - KHOJ_DEBUG=True
+      - KHOJ_ADMIN_EMAIL=admin@aproject.com
+      - KHOJ_ADMIN_PASSWORD=R1n@tu$1981
       # Default URL of Terrarium, the default Python sandbox used by Khoj to run code. Its container is specified above
-      - KHOJ_TERRARIUM_URL=http://sandbox:8080
+      - KHOJ_TERRARIUM_URL=https://sandbox.aproject.com
       # Uncomment line below to have Khoj run code in remote E2B code sandbox instead of the self-hosted Terrarium sandbox above. Get your E2B API key from https://e2b.dev/.
       # - E2B_API_KEY=your_e2b_api_key
       # Default URL of SearxNG, the default web search engine used by Khoj. Its container is specified above
-      - KHOJ_SEARXNG_URL=http://search:8080
+      - KHOJ_SEARXNG_URL=https://search.aproject.com
       # Uncomment line below to use with Ollama running on your local machine at localhost:11434.
       # Change URL to use with other OpenAI API compatible providers like VLLM, LMStudio, DeepInfra, DeepSeek etc.
-      # - OPENAI_BASE_URL=http://host.docker.internal:11434/v1/
+      - OPENAI_BASE_URL=https://agent.timeweb.cloud/api/v1/cloud-ai/agents/25894de8-2721-4403-8db8-5c30103c7d34/v1
       # - KHOJ_DEFAULT_CHAT_MODEL=qwen3
       #
       # Uncomment appropriate lines below to use chat models by OpenAI, Anthropic, Google.
       # Ensure you set your provider specific API keys.
       # ---
-      # - OPENAI_API_KEY=your_openai_api_key
+      - OPENAI_API_KEY=eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCIsImtpZCI6IjFrYnhacFJNQGJSI0tSbE1xS1lqIn0.eyJ1c2VyIjoiY3YyMzE3OSIsInR5cGUiOiJhcGlfa2V5IiwiYXBpX2tleV9pZCI6Ijk4OGY2ZjJiLTVjMzYtNDRjMi05NTVlLTM2NWVjMzU1NzFjZSIsImlhdCI6MTc1ODA5Njc1OX0.fC55jo9zZPNcrVTDA53j69OJPGkgQZ1SKRpkUCSccHQrDpVy7YddqrZli6zGdvWp60HfRvSkl5wv7iAJOg1YqMhT4GABc7XV2js2dUGwDsvbePTnf9vDOjiZZWF1yhQo71s7XTlETw8G1S-7gu0Mh9-LomAWu4wTDk-HcicDHF7dCpj7hVLVPICBZ6yBzzxnAYoIiOO_IGr9KA9q-5kkvTVD2gyelVajqOrJq4uPIFJF0tJodhxpKnkpL8Yi3hACZcPqzvS1ulDjoP2vD-JeI0bqzFjElEanSQZwKjWo2XItvYJU3eKygxfTguVLfBjqLPWL4Ij4mKMEJigaBLSKfevaCBpPTM9F5XjzHxOdm5_g4tNpG2pV4tzZJeWzOhjQcHc39vWQD9VrKZ-JvKZ-bfMolK8qia0FTeazrpbi4ZADct_ZqGUU0QNz-8xgKvX_4xTRzVfOlZUvlgTUNgwnZfBRArq-mTuTYZjNF1dszLuqWJU4t1TviADlW6PreVjs
       # - GEMINI_API_KEY=your_gemini_api_key
       # - ANTHROPIC_API_KEY=your_anthropic_api_key
       #
       # Uncomment line below to enable Khoj to use its computer.
-      # - KHOJ_OPERATOR_ENABLED=True
+      - KHOJ_OPERATOR_ENABLED=True
       # Uncomment appropriate lines below to enable web results with Khoj
       # Ensure you set your provider specific API keys.
       # ---
@@ -111,7 +131,7 @@ services:
       # Replace the KHOJ_DOMAIN with the server's externally accessible domain or I.P address from a remote machie (no http/https prefix).
       # Ensure this is set correctly to avoid CSRF trusted origin or unset cookie issue when trying to access the admin panel.
       # - KHOJ_DOMAIN=192.168.0.104
-      # - KHOJ_DOMAIN=khoj.example.com
+      - KHOJ_DOMAIN=khoj.aproject.com
       # Replace the KHOJ_ALLOWED_DOMAIN with the server's internally accessible domain or I.P address on the host machine (no http/https prefix).
       # Only set if using a load balancer/reverse_proxy in front of your Khoj server. If unset, it defaults to KHOJ_DOMAIN.
       # For example, if the load balancer service is added to the khoj docker network, set KHOJ_ALLOWED_DOMAIN to khoj's docker service name: `server'.
@@ -122,11 +142,21 @@ services:
       # Read more at https://docs.khoj.dev/miscellaneous/telemetry
       # - KHOJ_TELEMETRY_DISABLE=True
     # Comment out this line when you're using the official ghcr.io/khoj-ai/khoj-cloud:latest prod image.
-    command: --host="0.0.0.0" --port=42110 -vv --anonymous-mode --non-interactive
-
+    command: --host="0.0.0.0" --port=42110 -vv # --anonymous-mode --non-interactive
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.khoj.entrypoints=websecure"
+      - "traefik.http.routers.khoj.rule=Host(`khoj.aproject.com`)"
+      - "traefik.http.routers.khoj.tls.certresolver=letsencrypt"
+      - "traefik.http.services.khoj.loadbalancer.server.port=42110"
+    networks:
+      - proxy
 volumes:
   khoj_config:
   khoj_db:
   khoj_models:
   khoj_search:
   khoj_computer:
+networks:
+  proxy:
+    external: true
